@@ -1,0 +1,98 @@
+using namespace System.Net
+# Input bindings are passed in via param block.
+param($Request, $TriggerMetadata)
+
+# Write to the Azure Functions log stream.
+Write-Host "PowerShell HTTP trigger function processed a request."
+
+# Interact with query parameters or the body of the request.
+$name = $Request.Query.Name
+if (-not $name) {
+    $name = $Request.Body.Name
+}
+
+$body = "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response."
+
+if ($name) {
+    $body = "Hello, $name. This HTTP triggered function executed successfully."
+}
+#$requestBody = Get-Content $Request -Raw | ConvertFrom-Json
+ 
+$NewSiteCollection = "https://ntgfreight.sharepoint.com/"# $Request.Body.NewSiteCollection #$requestBody.NewSiteCollection
+$TenantURL = "https://ntgfreight-admin.sharepoint.com/" # $requestBody.TenantURL
+$BlogTemplateURL ="https://ntgfreight.sharepoint.com/" # $Request.Body.BlogTemplateURL # $requestBody.BlogTemplateURL
+
+
+
+$tenant = 'ntgfreight.onmicrosoft.com' #$env:Tenant
+$clientID = "75628ab5-3918-433a-bfd8-fda0a60c33df"
+$thumbPrint = $env:Thumbprint
+$localPath = "c:\home\site\wwwroot\HttpTrigger1\template"
+$templatePath = "C:\home\site\wwwroot\HttpTrigger1\template\template29.xml"
+$CertificatePath = "C:\home\site\wwwroot\HttpTrigger1\certificate\MyAzureFunctionApp.pfx"
+
+Import-Module 'C:\home\site\wwwroot\HttpTrigger1\modules\SharePointPnPPowerShellOnline.psd1'
+
+Connect-PnPOnline -URL "https://ntgfreight.sharepoint.com/sites/training-hub" -CertificatePath $CertificatePath -Tenant 'ntgfreight.onmicrosoft.com' -ClientId "75628ab5-3918-433a-bfd8-fda0a60c33df"
+"Connected with admin"
+<# Region Get latest Item from list #>
+$itemID="";
+$itemTitle="";
+$itemurl="";
+
+
+$listItems= Get-PnPListItem -List "SiteToBeCreated" -Query "<View><ViewFields><FieldRef Name='Title'/><FieldRef Name='ID'/><FieldRef Name='URL'/><FieldRef Name='Status'/></ViewFields><RowLimit>1</RowLimit><Query><OrderBy><FieldRef Name='Created' Ascending='True' /></OrderBy></Query></View>" | select -Last 1
+foreach($listItem in $listItems){  
+   $itemID = $listItem["ID"]  
+   $itemTitle= $listItem["Title"]  
+   $itemurl = $listItem["URL"]  
+      
+}
+$NewChildSiteCollection=$NewSiteCollection+$itemurl;
+"New Child url NewChildSiteCollection"
+<# End Region Get latest Item from list #>
+New-PnPTenantSite -Url $NewChildSiteCollection -Owner "codecreators.sa@ntgfreight.com" -Title "Communication Site" -Template "SITEPAGEPUBLISHING#0" -TimeZone 4
+"SiteCreated"
+
+
+Start-Sleep -s 15
+"sleep"
+Connect-PnPOnline -Url $NewChildSiteCollection -ClientId $clientID -CertificatePath $CertificatePath -Tenant $tenant  #sharepoint online powershell change site name 
+Set-PnPWeb -Title "$itemTitle"
+"set title"
+#Connect-PnPOnline $NewChildSiteCollection -ClientId $clientID -CertificatePath $CertificatePath -Tenant $tenant
+"Template Site Connected"
+
+$UrlLength=$NewChildSiteCollection.Split("/").Length;
+#if($UrlLength -eq 5){
+if($NewChildSiteCollection -Match "DT-"){
+"before if"
+Apply-PnPProvisioningTemplate -path $templatePath
+"after if"
+}
+
+#Apply-PnPProvisioningTemplate -path $templatePath
+"Template Implemented"
+Start-Sleep -s 15
+"sleep"
+$pic =  "/sites/Dailytrainingsitereplica/Images1/dailytraining"
+Copy-PnPFile -SourceUrl $pic -TargetUrl "/$itemurl/Images1/dailytraining" -skipSourceFolderName  -Force
+"copy files"
+
+#Parameters 
+#$AdminCenterURL = "https://codecreatorsio.sharepoint.com/sites/specifictraining" 
+#$SiteURL = $NewChildSiteCollection 
+#$ThemeName = "template theme" 
+#Connect-PnPOnline -PnPManagementShell -Url $AdminCenterURL 
+#Set-PnPWebTheme -Theme $ThemeName -WebUrl $SiteURL
+
+#$site = Get-PnPWeb
+#Out-File -Encoding ascii -FilePath $res -InputObject $site.Tittle
+
+
+$body= "s";
+# Associate values to output bindings by calling 'Push-OutputBinding'.
+#Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
+#    StatusCode = [HttpStatusCode]::OK
+#    Body = $body
+#})
